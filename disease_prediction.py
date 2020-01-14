@@ -26,10 +26,10 @@ CORS(app)
 conn = sqlite3.connect('database.db')
 print("Opened database successfully")
 conn.execute('CREATE TABLE IF NOT EXISTS Patients (id INTEGER PRIMARY KEY,firstName TEXT, lastName TEXT, ins_ID TEXT, city TEXT, dob TEXT)') 
-conn.execute('CREATE TABLE IF NOT EXISTS Spiral (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER)') 
-conn.execute('CREATE TABLE IF NOT EXISTS Wave (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER)')
-conn.execute('CREATE TABLE IF NOT EXISTS Malaria (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER)') 
-conn.execute('CREATE TABLE IF NOT EXISTS Breast (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER)') 
+conn.execute('CREATE TABLE IF NOT EXISTS Spiral (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER, pat_id INTEGER, FOREIGN KEY(pat_id) REFERENCES Patients(id))') 
+conn.execute('CREATE TABLE IF NOT EXISTS Wave (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER, pat_id INTEGER, FOREIGN KEY(pat_id) REFERENCES Patients(id))') 
+conn.execute('CREATE TABLE IF NOT EXISTS Malaria (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER, pat_id INTEGER, FOREIGN KEY(pat_id) REFERENCES Patients(id))') 
+conn.execute('CREATE TABLE IF NOT EXISTS Breast (id INTEGER PRIMARY KEY,positive INTEGER, negative INTEGER, pat_id INTEGER, FOREIGN KEY(pat_id) REFERENCES Patients(id))') 
 
 
 @app.route('/prediction', methods=['POST'])
@@ -120,13 +120,14 @@ def api_image():
         cur = con.cursor()
         cur.execute('INSERT INTO Patients VALUES(?,?,?,?,?,?)',(None,firstName, lastName, ins_ID, city, dob))
         res=cur.execute('SELECT * FROM Patients')
-
+        pat_id = cur.execute('SELECT * FROM Patients WHERE id = (SELECT MAX(id) FROM Patients);').fetchall()[0][0]
+        print('pat_id ',pat_id)
         if model_name in "malaria":
             if pred == 1:
-                cur.execute('INSERT INTO Malaria VALUES(?,?,?)',(None,1,0))
+                cur.execute('INSERT INTO Malaria VALUES(?,?,?,?)',(None,1,0,pat_id))
 
             else:
-                cur.execute('INSERT INTO Malaria VALUES(?,?,?)',(None,0,1))
+                cur.execute('INSERT INTO Malaria VALUES(?,?,?,?)',(None,1,0,pat_id))
             con.commit()
 
             positive = cur.execute('SELECT SUM(positive) FROM Malaria')
@@ -137,9 +138,9 @@ def api_image():
 
         elif model_name in "spiral":
             if pred == 1:
-                cur.execute('INSERT INTO Spiral VALUES(?,?,?)',(None,1,0))
+                cur.execute('INSERT INTO Spiral VALUES(?,?,?,?)',(None,1,0,pat_id))
             else:
-                cur.execute('INSERT INTO Spiral VALUES(?,?,?)',(None,0,1))
+                cur.execute('INSERT INTO Spiral VALUES(?,?,?,?)',(None,0,1,pat_id))
             con.commit()
 
             positive = cur.execute('SELECT SUM(positive) FROM Spiral')
@@ -150,9 +151,9 @@ def api_image():
 
         elif model_name in "wave":
             if pred == 1:
-                cur.execute('INSERT INTO Wave VALUES(?,?,?)',(None,1,0))
+                cur.execute('INSERT INTO Wave VALUES(?,?,?,?)',(None,1,0,pat_id))
             else:
-                cur.execute('INSERT INTO Wave VALUES(?,?,?)',(None,0,1))
+                cur.execute('INSERT INTO Wave VALUES(?,?,?,?)',(None,1,0,pat_id))
             con.commit()
             positive = cur.execute('SELECT SUM(positive) FROM Wave')
             positive = positive.fetchall()
@@ -161,9 +162,9 @@ def api_image():
         
         elif model_name in "breast":
             if pred == 1:
-                cur.execute('INSERT INTO Breast VALUES(?,?,?)',(None,1,0))
+                cur.execute('INSERT INTO Breast VALUES(?,?,?,?)',(None,1,0,pat_id))
             else:
-                cur.execute('INSERT INTO Breast VALUES(?,?,?)',(None,0,1))
+                cur.execute('INSERT INTO Breast VALUES(?,?,?,?)',(None,1,0,pat_id))
             con.commit()
             positive = cur.execute('SELECT SUM(positive) FROM Breast')
             positive = positive.fetchall()
@@ -231,6 +232,75 @@ def patients_db():
         con.commit()
         patients_data = list()
         keys = ['id', 'firstName', 'lastName', 'ins_id', 'city', 'dob']
+        for result in results:
+            patients_data.append(dict(zip(keys, result)))
+
+    backend.clear_session()
+    return jsonify(patients_data)
+
+@app.route('/spiral', methods=['GET'])
+def spiral_db():
+    print('API spiral')
+
+    with sqlite3.connect("database.db") as con:
+        cur = con.cursor()
+
+        results = cur.execute('SELECT Spiral.id,Patients.firstName,Patients.lastName,Patients.dob,Spiral.positive,Spiral.negative FROM Patients INNER JOIN Spiral ON Patients.id=Spiral.pat_id').fetchall()     
+        con.commit()     
+        patients_data = list()
+        keys = ['id', 'firstName', 'lastName','dob', 'positive', 'negative']
+        for result in results:
+            patients_data.append(dict(zip(keys, result)))
+
+    backend.clear_session()
+    return jsonify(patients_data)
+
+@app.route('/wave', methods=['GET'])
+def spiral_db():
+    print('API Wave')
+
+    with sqlite3.connect("database.db") as con:
+        cur = con.cursor()
+
+        results = cur.execute('SELECT Wave.id,Patients.firstName,Patients.lastName,Patients.dob,Wave.positive,Wave.negative FROM Patients INNER JOIN Wave ON Patients.id=Spiral.pat_id').fetchall()     
+        con.commit()
+        patients_data = list()
+        keys = ['id', 'firstName', 'lastName','dob', 'positive', 'negative']
+        for result in results:
+            patients_data.append(dict(zip(keys, result)))
+
+    backend.clear_session()
+    return jsonify(patients_data)
+
+
+@app.route('/malaria', methods=['GET'])
+def spiral_db():
+    print('API Malaria')
+
+    with sqlite3.connect("database.db") as con:
+        cur = con.cursor()
+
+        results = cur.execute('SELECT Malaria.id,Patients.firstName,Patients.lastName,Patients.dob,Malaria.positive,Malaria.negative FROM Patients INNER JOIN Malaria ON Patients.id=Spiral.pat_id').fetchall()     
+        con.commit()
+        patients_data = list()
+        keys = ['id', 'firstName', 'lastName','dob', 'positive', 'negative']
+        for result in results:
+            patients_data.append(dict(zip(keys, result)))
+
+    backend.clear_session()
+    return jsonify(patients_data)
+
+@app.route('/breast', methods=['GET'])
+def spiral_db():
+    print('API Breast')
+
+    with sqlite3.connect("database.db") as con:
+        cur = con.cursor()
+
+        results = cur.execute('SELECT Breast.id,Patients.firstName,Patients.lastName,Patients.dob,Breast.positive,Breast.negative FROM Patients INNER JOIN Breast ON Patients.id=Spiral.pat_id').fetchall()     
+        con.commit()
+        patients_data = list()
+        keys = ['id', 'firstName', 'lastName','dob', 'positive', 'negative']
         for result in results:
             patients_data.append(dict(zip(keys, result)))
 
